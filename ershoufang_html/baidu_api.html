@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+   <head>
+       <meta charset="utf-8">
+   </head>
+   <body style="height: 100%; margin: 0">
+
+      <div style ="z-index=999">
+
+      <input type="button" value="区域房价均价" onclick="search_ave_price()"  ID="startBtn" NAME="Button1">
+
+      <input type="button" onclick="disp_prompt()" value="房价区间->位置显示" />
+
+      <input type="button" value="echarts" onclick="my_echart()"  ID="echartsBtn" NAME="Button2">
+
+      </div>
+       <div id="container" style="height: 100%"></div>
+      
+     
+       <!-- 新添加的jQuery -->
+       <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+       <!-- End -->
+
+       <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=Qzd4dnHZ8NxyEv4Tf7yiRQeA5wOwBy4e"></script>
+      
+       <script type="text/javascript">
+          
+          var app = {};
+          app.title = '热力图与百度地图扩展';
+
+          var map = new BMap.Map("container");
+          map.centerAndZoom("武汉",15)
+          map.enableScrollWheelZoom(true)//允许拖放
+         
+          var buttnstatus=false
+
+
+          $.get('ershoufang.json', function (data) {
+
+
+              var data = eval("("+data+")");//要计算的字符串，其中含有要计算的 JavaScript 表达式或要执行的语句。
+              //由于json是以”{}”的方式来开始以及结束的，在JS中，它会被当成一个语句块来处理，所以必须强制性的将它转换成一种表达式。
+              var points = [].concat.apply([], data.map(function (track) {
+                  return track.map(function (seg) {// map() 方法返回一个由原数组中的每个元素调用一个指定方法后的返回值组成的新数组。
+                      return seg.coord.concat([seg.elevation]);//concat() 方法用于连接两个或多个数组。
+                  });//[x1,y1,1],[x2,y2,1]...... // 维度X   维度Y   其他维度 ...
+              }));
+              //data.length=1
+              //data[0].length=4390[[{},{},{}],]
+              
+              realData=data[0]
+              //document.write(realData[0].housename)
+
+              //show(0,0,realData)
+              map.addEventListener("click", showInfo_click_closest);
+              
+              
+
+
+          },"text");//get
+          
+         
+
+          function search_ave_price(){
+
+            var pts=[]
+            map.addEventListener("click", function(e){
+                var pt1=e.point
+                pts.push(pt1)
+                map.addEventListener("click", function(e){
+                var pt1=e.point
+                pts.push(pt1)
+
+                   var local = new BMap.LocalSearch(map, {
+                        renderOptions:{map: map}
+                    });
+                  var pStart = new BMap.Point(pts[0].lng,pts[0].lat);
+                  var pEnd = new BMap.Point(pts[1].lng,pts[1].lat);
+                  var bs = new BMap.Bounds(pStart,pEnd);   //自己规定范围
+                  local.searchInBounds("银行", bs);
+                  
+                  var polygon = new BMap.Polygon([
+                    new BMap.Point(pStart.lng,pStart.lat),
+                    new BMap.Point(pEnd.lng,pStart.lat),
+                    new BMap.Point(pEnd.lng,pEnd.lat),
+                    new BMap.Point(pStart.lng,pEnd.lat)
+                    ], {strokeColor:"blue", strokeWeight:6, strokeOpacity:0.5});
+                  
+                  map.addOverlay(polygon);
+                  var sum=0,k=0;
+                  for(var i=0;i<realData.length;i++)
+                  {
+                    var x=realData[i].coord[0]
+                    var y=realData[i].coord[1]
+                    if(x>=pts[0].lng&&x<=pts[1].lng&&y<=pts[0].lat&&y>=pts[1].lat)
+                    {
+                      sum+=realData[i].elevation;
+                      k+=1
+                    }
+                  }
+                  alert("总共"+k+"间,均价为:"+(sum/k))
+
+
+
+                  }
+                  );
+            }
+            );
+        
+          }
+
+
+          function disp_prompt(){
+              var str=prompt("请输入搜索的房价区间xxxxx-xxxxx 单价：万,如1000-2000","1000-2000")
+              low_price=str.split("-")[0]
+              high_price=str.split("-")[1]
+              for(var i=0;i<realData.length;i++)
+              {
+                var x=realData[i].elevation
+                if(x>=low_price&&x<=high_price)
+                {
+                    var marker = new BMap.Marker(new BMap.Point(realData[i].coord[0],realData[i].coord[1]));  // 创建标注
+                    var content = realData[i].housename;
+                    map.addOverlay(marker);               // 将标注添加到地图中
+                    addClickHandler(content,marker);
+
+                     function addClickHandler(content,marker){
+                        marker.addEventListener("click",function(e){
+                            openInfo(content,e)}
+                        );
+                    }
+                    function openInfo(content,e){
+                        var p = e.target;
+                        var point = new BMap.Point(p.getPosition().lng, p.getPosition().lat);
+                        var infoWindow = new BMap.InfoWindow(content,opts);  // 创建信息窗口对象 
+                        map.openInfoWindow(infoWindow,point); //开启信息窗口
+                    }
+
+
+                }
+              }
+
+              
+          }
+          
+            
+          function showInfo_click_closest(e)
+          {
+
+            var pt=e.point;
+            nearest_data=find10nearest(realData,pt);
+            var opts = {
+                    width : 250,     // 信息窗口宽度
+                    height: 80,     // 信息窗口高度
+                    title : "二手房信息:" , // 信息窗口标题
+                    enableMessage:true//设置允许信息窗发送短息
+                        };
+
+            for(var i=0;i<nearest_data.length;i++){
+              var marker = new BMap.Marker(new BMap.Point(nearest_data[i].coord[0],nearest_data[i].coord[1]));  // 创建标注
+              var content = nearest_data[i].housename+' '+nearest_data[i].elevation+'万';
+
+              map.addOverlay(marker);               // 将标注添加到地图中
+              addClickHandler(content,marker);
+             }
+            function addClickHandler(content,marker){
+                marker.addEventListener("click",function(e){
+                    openInfo(content,e)}
+                );
+            }
+            function openInfo(content,e){
+                var p = e.target;
+                var point = new BMap.Point(p.getPosition().lng, p.getPosition().lat);
+                var infoWindow = new BMap.InfoWindow(content,opts);  // 创建信息窗口对象 
+                map.openInfoWindow(infoWindow,point); //开启信息窗口
+            }
+          }
+         
+
+
+         function find10nearest(realData,pt){
+            
+            tmpdata=realData;
+            
+            var pointA= new BMap.Point(pt.lng,pt.lat)
+        
+            return (tmpdata.sort( function(a,b){
+                var pointaB= new BMap.Point(a.coord[0],a.coord[1])
+                var pointbB= new BMap.Point(b.coord[0],b.coord[1])
+               return map.getDistance(pointA,pointaB)-map.getDistance(pointA,pointbB);
+            })).slice(0,10)
+            
+         }
+
+         function my_echart(){
+            //window.location.href = "file:///C:/Users/Administrator/Desktop/echarts_with_[0,5].html"; 
+            window.open("file:///C:/Users/Administrator/Desktop/rent_html/echarts_with_[0,5].html","a",'_blank')
+            window.open("file:///C:/Users/Administrator/Desktop/rent_html/echarts _air_distribute.html","b",'_blank')
+            window.open("file:///C:/Users/Administrator/Desktop/rent_html/echarts _bmap_effectivescatter.html","c",'_blank')
+            window.open("file:///C:/Users/Administrator/Desktop/rent_html/echarts _bmap_heap.html",'_blank')
+         }
+
+
+
+       </script>
+   </body>
+</html>

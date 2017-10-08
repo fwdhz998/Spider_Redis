@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+   <head>
+       <meta charset="utf-8">
+   </head>
+   <body style="height: 100%; margin: 0">
+       <div id="container" style="height: 100%"></div>
+      
+       <div id="allmap"></div>
+
+
+
+
+       <!-- 新添加的jQuery -->
+       <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+       <!-- End -->
+
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/echarts-all-3.js"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/extension/dataTool.min.js"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/map/js/china.js"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/map/js/world.js"></script>
+       <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=Qzd4dnHZ8NxyEv4Tf7yiRQeA5wOwBy4e"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/extension/bmap.min.js"></script>
+       <script type="text/javascript">
+          var dom = document.getElementById("container");
+          var myChart = echarts.init(dom);
+          var app = {};
+          option = null;
+          app.title = '热力图与百度地图扩展';
+
+          var map = new BMap.Map("container");
+          map.centerAndZoom("武汉",12)
+
+          $.get('house_elevation_coord_data.json', function (data) {
+
+
+              var data = eval("("+data+")");//要计算的字符串，其中含有要计算的 JavaScript 表达式或要执行的语句。
+              //由于json是以”{}”的方式来开始以及结束的，在JS中，它会被当成一个语句块来处理，所以必须强制性的将它转换成一种表达式。
+              var points = [].concat.apply([], data.map(function (track) {
+                  return track.map(function (seg) {// map() 方法返回一个由原数组中的每个元素调用一个指定方法后的返回值组成的新数组。
+                      return seg.coord.concat([seg.elevation]);//concat() 方法用于连接两个或多个数组。
+                  });//[x1,y1,1],[x2,y2,1]...... // 维度X   维度Y   其他维度 ...
+              }));
+              //data.length=1
+              //data[0].length=4390[[{},{},{}],]
+              
+              realData=data[0]
+              //document.write(realData[0].housename)
+              
+              
+              myChart.setOption(option = {
+                  animation: false, //是否开启动画
+                  
+                  bmap: {
+                      center: [114.30768321075, 30.652105788647],
+                      zoom: 15,
+                      roam: true
+                  },     
+                  visualMap: {
+                      //show: true,
+                      //top: 'top',
+                      min: 0,
+                      max: 20000,
+                      splitNumber:10,
+                      seriesIndex: 0,
+                      //calculable: true,  分段数据说明
+                      inRange: {
+                           color:['green','red','black']
+                      },
+                      textStyle: {
+                          color: 'black'
+                       }
+
+                  },
+                  series: [{
+                      type: 'heatmap',
+                      coordinateSystem: 'bmap',
+                      data: points,
+                      pointSize: 5,
+                      blurSize: 1
+                  }]
+                
+              });
+    
+              if (!app.inNode) {
+                  // 添加百度地图插件
+                  var bmap = myChart.getModel().getComponent('bmap').getBMap();
+                  
+                  bmap.addEventListener("click", function(e){
+                    var pt=e.point
+                     //pt.lng,pt.lat
+                    nearest_data=find10nearest(realData,pt)
+
+                    
+                   //for(var i=0;i<=nearest_data.length-1;i++)
+                   //{
+                    var pointA= new BMap.Point(pt.lng,pt.lat)
+                   
+                    var pointB= new BMap.Point(nearest_data[0].coord[0],nearest_data[0].coord[1])
+                     var marker = new BMap.Marker(pointB);
+                     map.addOverlay(marker);
+
+                    //addline(pointA,pointB)
+                  // }
+
+
+                  })
+
+
+
+
+
+
+                  bmap.addControl(new BMap.MapTypeControl());
+              }
+
+
+
+
+          },"text");
+          
+          if (option && typeof option === "object") {
+              myChart.setOption(option, true);
+          }
+
+         
+
+
+         function find10nearest(realData,pt){
+            
+            tmpdata=realData;
+            
+            var pointA= new BMap.Point(pt.lng,pt.lat)
+        
+            return (tmpdata.sort( function(a,b){
+                var pointaB= new BMap.Point(a.coord[0],a.coord[1])
+                var pointbB= new BMap.Point(b.coord[0],b.coord[1])
+               return map.getDistance(pointA,pointaB)-map.getDistance(pointA,pointbB);
+            })).slice(0,10)
+            
+         }
+
+         function addline(pointA,pointB){
+            var polyline = new BMap.Polyline([pointA,pointB], {strokeColor:"blue", strokeWeight:6, strokeOpacity:0.5});  //定义折线
+            map.addOverlay(polyline);     //添加折线到地图上
+         }
+
+
+
+
+       </script>
+   </body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+   <head>
+       <meta charset="utf-8">
+   </head>
+   <body style="height: 100%; margin: 0">
+       <div id="container" style="height: 100%"></div>
+
+       <!-- 新添加的jQuery -->
+       <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+       <!-- End -->
+
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/echarts-all-3.js"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/extension/dataTool.min.js"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/map/js/china.js"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/map/js/world.js"></script>
+       <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=Qzd4dnHZ8NxyEv4Tf7yiRQeA5wOwBy4e"></script>
+       <script type="text/javascript" src="http://echarts.baidu.com/gallery/vendors/echarts/extension/bmap.min.js"></script>
+       <script type="text/javascript">
+          var dom = document.getElementById("container");
+          var myChart = echarts.init(dom);
+          var app = {};
+          option = null;
+          app.title = '热力图与百度地图扩展';
+
+          $.get('ershoufang.json', function (data) {
+
+
+              var data = eval("("+data+")");//要计算的字符串，其中含有要计算的 JavaScript 表达式或要执行的语句。
+              //由于json是以”{}”的方式来开始以及结束的，在JS中，它会被当成一个语句块来处理，所以必须强制性的将它转换成一种表达式。
+              var points = [].concat.apply([], data.map(function (track) {
+                  return track.map(function (seg) {// map() 方法返回一个由原数组中的每个元素调用一个指定方法后的返回值组成的新数组。
+                      return seg.coord.concat([seg.elevation]);//concat() 方法用于连接两个或多个数组。
+                  });//[x1,y1,1],[x2,y2,1]...... // 维度X   维度Y   其他维度 ...
+              }));
+              //data.length=1
+              //data[0].length=4390[[{},{},{}],]
+              
+              realData=data[0]
+
+              
+              
+              myChart.setOption(option = {
+                  animation: false, //是否开启动画
+                  
+                  bmap: {
+                      center: [114.30768321075, 30.652105788647],
+                      zoom: 13,
+                      roam: true
+                  },
+
+                     
+
+
+
+
+                  
+                  visualMap: {
+                      //show: true,
+                      //top: 'top',
+                      min: 0,
+                      max: 600,
+                      splitNumber:10,
+                      seriesIndex: 0,
+                      //calculable: true,  分段数据说明
+                      inRange: {
+                           color:['green','red','black']
+                      },
+                      textStyle: {
+                          color: 'black'
+                       }
+
+                  },
+                  
+              
+
+
+
+                  
+                  series: [{
+                      type: 'heatmap',
+                      coordinateSystem: 'bmap',
+                      data: points,
+                      pointSize: 5,
+                      blurSize: 1
+                  }]
+                  
+
+                  
+                  
+
+
+              });
+              if (!app.inNode) {
+                  // 添加百度地图插件
+                  var bmap = myChart.getModel().getComponent('bmap').getBMap();
+                  bmap.addControl(new BMap.MapTypeControl());
+              }
+          },"text");
+          ;
+          if (option && typeof option === "object") {
+              myChart.setOption(option, true);
+          }
+       </script>
+   </body>
+</html>
